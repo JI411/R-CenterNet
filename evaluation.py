@@ -30,15 +30,12 @@ def process(images, return_time=False):
       ang = output['ang'].relu_()
       wh = output['wh']
       reg = output['reg'] 
-     
+
       torch.cuda.synchronize()
       forward_time = time.time()
       dets = ctdet_decode(hm, wh, ang, reg=reg, K=100) # K 是最多保留几个目标
-      
-    if return_time:
-      return output, dets, forward_time
-    else:
-      return output, dets
+
+    return (output, dets, forward_time) if return_time else (output, dets)
 
 # =============================================================================
 # 常规 IOU
@@ -74,14 +71,12 @@ def iou(bbox1, bbox2, center=False):
     yy2 = np.min([ymax1, ymax2])
 
     # 计算两个矩形框面积
-    area1 = (xmax1 - xmin1 ) * (ymax1 - ymin1 ) 
+    area1 = (xmax1 - xmin1 ) * (ymax1 - ymin1 )
     area2 = (xmax2 - xmin2 ) * (ymax2 - ymin2 )
- 
+
     # 计算交集面积 
     inter_area = (np.max([0, xx2 - xx1])) * (np.max([0, yy2 - yy1]))
-    # 计算交并比
-    iou = inter_area / (area1 + area2 - inter_area + 1e-6)
-    return iou
+    return inter_area / (area1 + area2 - inter_area + 1e-6)
 #bbox1 = [1,1,2,2]
 #bbox2 = [2,2,2,2]
 #ret = iou(bbox1,bbox2,True)
@@ -103,11 +98,9 @@ def iou_rotate_calculate(boxes1, boxes2):
         order_pts = cv2.convexHull(int_pts, returnPoints=True)
         int_area = cv2.contourArea(order_pts)
         # 计算出iou
-        ious = int_area * 1.0 / (area1 + area2 - int_area)
-#        print(int_area)
+        return int_area * 1.0 / (area1 + area2 - int_area)
     else:
-        ious=0
-    return ious
+        return 0
 # 用中心点坐标、长宽、旋转角
 #boxes1 = np.array([1,1,2,2,0],dtype='float32')
 #boxes2 = np.array([2,2,2,2,0],dtype='float32')

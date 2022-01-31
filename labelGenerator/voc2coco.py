@@ -106,25 +106,27 @@ class PascalVOC2coco(object):
         sys.stdout.flush()
  
     def image(self):
-        image = {}
-        image['height'] = self.height
-        image['width'] = self.width
-        image['id'] = self.num + 1
-        image['file_name'] = self.filen_ame
-        return image
+        return {
+            'height': self.height,
+            'width': self.width,
+            'id': self.num + 1,
+            'file_name': self.filen_ame,
+        }
  
     def categorie(self):
-        categorie = {}
-        categorie['supercategory'] = self.supercategory
-        categorie['id'] = len(self.label) + 1  # 0 默认为背景
-        categorie['name'] = self.supercategory
-        return categorie
+        return {
+            'supercategory': self.supercategory,
+            'id': len(self.label) + 1,
+            'name': self.supercategory,
+        }
  
     def annotation(self):
-        annotation = {}
+        annotation = {
+            'segmentation': [list(map(float, self.getsegmentation()))],
+            'iscrowd': 0,
+        }
 
-        annotation['segmentation'] = [list(map(float, self.getsegmentation()))]
-        annotation['iscrowd'] = 0
+
         annotation['image_id'] = self.num + 1
 
         annotation['bbox'] = self.bbox
@@ -139,27 +141,27 @@ class PascalVOC2coco(object):
         return -1
  
     def getsegmentation(self):
- 
+     
         try:
             mask_1 = cv2.imread(self.path, 0)
             mask = np.zeros_like(mask_1, np.uint8)
             rectangle = self.rectangle
             mask[rectangle[1]:rectangle[3], rectangle[0]:rectangle[2]] = mask_1[rectangle[1]:rectangle[3],
                                                                          rectangle[0]:rectangle[2]]
- 
+
             # 计算矩形中点像素值
             mean_x = (rectangle[0] + rectangle[2]) // 2
             mean_y = (rectangle[1] + rectangle[3]) // 2
- 
+
             end = min((mask.shape[1], int(rectangle[2]) + 1))
             start = max((0, int(rectangle[0]) - 1))
- 
+
             flag = True
             for i in range(mean_x, end):
                 x_ = i;
                 y_ = mean_y
                 pixels = mask_1[y_, x_]
-                if pixels != 0 and pixels != 220:  # 0 对应背景 220对应边界线
+                if pixels not in [0, 220]:  # 0 对应背景 220对应边界线
                     mask = (mask == pixels).astype(np.uint8)
                     flag = False
                     break
@@ -168,13 +170,13 @@ class PascalVOC2coco(object):
                     x_ = i;
                     y_ = mean_y
                     pixels = mask_1[y_, x_]
-                    if pixels != 0 and pixels != 220:
+                    if pixels not in [0, 220]:
                         mask = (mask == pixels).astype(np.uint8)
                         break
             self.mask = mask
- 
+
             return self.mask2polygons()
- 
+
         except:
             return [0]
  
@@ -188,11 +190,11 @@ class PascalVOC2coco(object):
  
   
     def data2coco(self):
-        data_coco = {}
-        data_coco['images'] = self.images
-        data_coco['categories'] = self.categories
-        data_coco['annotations'] = self.annotations
-        return data_coco
+        return {
+            'images': self.images,
+            'categories': self.categories,
+            'annotations': self.annotations,
+        }
  
     def save_json(self):
         self.data_transfer()
