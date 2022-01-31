@@ -69,7 +69,7 @@ def draw(filename,result):
     img.save(os.path.join('img_ret','dla_dcn_34_best_v2',os.path.split(filename)[-1]))
 
 def pre_process(image):
-    height, width = image.shape[0:2]
+    height, width = image.shape[:2]
     inp_height, inp_width = 512, 512
     c = np.array([width / 2.,  height / 2.], dtype=np.float32)
     s = max(height, width) * 1.0
@@ -78,11 +78,11 @@ def pre_process(image):
 
     mean = np.array([0.5194416012442385,0.5378052387430711,0.533462090585746], dtype=np.float32).reshape(1, 1, 3)
     std  = np.array([0.3001546018824507, 0.28620901391179554, 0.3014112676161966], dtype=np.float32).reshape(1, 1, 3)
-    
+
     inp_image = ((inp_image / 255. - mean) / std).astype(np.float32)
 
     images = inp_image.transpose(2, 0, 1).reshape(1, 3, inp_height, inp_width) # 三维reshape到4维，（1，3，512，512） 
-    
+
     images = torch.from_numpy(images)
     meta = {'c': c, 's': s, 
             'out_height': inp_height // 4, 
@@ -124,10 +124,10 @@ def ctdet_decode(heat, wh, ang, reg=None, K=100):
     reg = reg.view(batch, K, 2)
     xs = xs.view(batch, K, 1) + reg[:, :, 0:1]
     ys = ys.view(batch, K, 1) + reg[:, :, 1:2]
-   
+
     wh = _transpose_and_gather_feat(wh, inds)
     wh = wh.view(batch, K, 2)
-    
+
     ang = _transpose_and_gather_feat(ang, inds)
     ang = ang.view(batch, K, 1)
 
@@ -138,8 +138,7 @@ def ctdet_decode(heat, wh, ang, reg=None, K=100):
                         xs + wh[..., 0:1] / 2, 
                         ys + wh[..., 1:2] / 2,
                         ang], dim=2)
-    detections = torch.cat([bboxes, scores, clses], dim=2)
-    return detections
+    return torch.cat([bboxes, scores, clses], dim=2)
 
 
 def process(images, return_time=False):
@@ -152,10 +151,7 @@ def process(images, return_time=False):
       torch.cuda.synchronize()
       forward_time = time.time()
       dets = ctdet_decode(hm, wh, ang, reg=reg, K=100) # K 是最多保留几个目标
-    if return_time:
-      return output, dets, forward_time
-    else:
-      return output, dets
+    return (output, dets, forward_time) if return_time else (output, dets)
 
 
 def affine_transform(pt, t):

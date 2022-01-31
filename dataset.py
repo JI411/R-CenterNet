@@ -57,42 +57,41 @@ class ctDataset(data.Dataset):
         file_name = self.coco.loadImgs(ids=[img_id])[0]['file_name']
         img_path = os.path.join(self.img_dir, file_name)
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
-        anns = self.coco.loadAnns(ids=ann_ids) 
+        anns = self.coco.loadAnns(ids=ann_ids)
         num_objs = min(len(anns), self.max_objs)
-        img = cv2.imread(img_path)  
-        height, width = img.shape[0], img.shape[1]  
+        img = cv2.imread(img_path)
+        height, width = img.shape[0], img.shape[1]
         c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)  # 中心点
-    
-        keep_res = False #
-        if keep_res:
-            input_h = (height | 31) + 1   
+
+        if keep_res := False:
+            input_h = (height | 31) + 1
             input_w = (width | 31) + 1
             s = np.array([input_w, input_h], dtype=np.float32)
         else:
-            s = max(img.shape[0], img.shape[1]) * 1.0  
+            s = max(img.shape[0], img.shape[1]) * 1.0
             input_h, input_w = 512, 512 
 
         trans_input = get_affine_transform(c, s, 0, [input_w, input_h])
-        inp = cv2.warpAffine(img, trans_input,(input_w, input_h),flags=cv2.INTER_LINEAR) 
+        inp = cv2.warpAffine(img, trans_input,(input_w, input_h),flags=cv2.INTER_LINEAR)
         inp = (inp.astype(np.float32) / 255.)  
 
         #归一化
         inp = (inp - self.mean) / self.std
         inp = inp.transpose(2, 0, 1) 
-        
-        down_ratio = 4 
+
+        down_ratio = 4
         output_h = input_h // down_ratio
         output_w = input_w // down_ratio
-        num_classes = self.num_classes 
+        num_classes = self.num_classes
         trans_output = get_affine_transform(c, s, 0, [output_w, output_h])  
 
-        hm = np.zeros((num_classes, output_h, output_w), dtype=np.float32)   
+        hm = np.zeros((num_classes, output_h, output_w), dtype=np.float32)
         wh = np.zeros((self.max_objs, 2), dtype=np.float32)
         ang = np.zeros((self.max_objs, 1), dtype=np.float32)
-        reg = np.zeros((self.max_objs, 2), dtype=np.float32) 
+        reg = np.zeros((self.max_objs, 2), dtype=np.float32)
         ind = np.zeros((self.max_objs), dtype=np.int64) 
-        
-        reg_mask = np.zeros((self.max_objs), dtype=np.uint8) 
+
+        reg_mask = np.zeros((self.max_objs), dtype=np.uint8)
         draw_gaussian = draw_umich_gaussian
         for k in range(num_objs):  # num_objs图中标记物数目  
             ann = anns[k]  # 第几个标记物的标签
@@ -116,9 +115,8 @@ class ctDataset(data.Dataset):
                 reg[k] = ct - ct_int
                 reg_mask[k] = 1
         ret = {'input': inp, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'ang':ang}
-        reg_offset_flag = True #
-        if reg_offset_flag:
-            ret.update({'reg': reg})
+        if reg_offset_flag := True:
+            ret['reg'] = reg
         return ret
     
 def grayscale(image):
@@ -189,11 +187,11 @@ def get_affine_transform(center,scale,rot, output_size,
     src[2:, :] = get_3rd_point(src[0, :], src[1, :])
     dst[2:, :] = get_3rd_point(dst[0, :], dst[1, :])
 
-    if inv:
-        trans = cv2.getAffineTransform(np.float32(dst), np.float32(src))
-    else:
-        trans = cv2.getAffineTransform(np.float32(src), np.float32(dst))
-    return trans
+    return (
+        cv2.getAffineTransform(np.float32(dst), np.float32(src))
+        if inv
+        else cv2.getAffineTransform(np.float32(src), np.float32(dst))
+    )
 
 def gaussian2D(shape, sigma=1):
     m, n = [(ss - 1.) / 2. for ss in shape]
@@ -205,15 +203,15 @@ def gaussian2D(shape, sigma=1):
 def draw_umich_gaussian(heatmap, center, radius, k=1):
     diameter = 2 * radius + 1
     gaussian = gaussian2D((diameter, diameter), sigma=diameter / 6)
-  
+
     x, y = int(center[0]), int(center[1])
 
-    height, width = heatmap.shape[0:2]
-    left, right = min(x, radius), min(width - x, radius + 1) 
+    height, width = heatmap.shape[:2]
+    left, right = min(x, radius), min(width - x, radius + 1)
     top, bottom = min(y, radius), min(height - y, radius + 1)
 
-    masked_heatmap  = heatmap[y - top:y + bottom, x - left:x + right] 
-    masked_gaussian = gaussian[radius - top:radius + bottom, radius - left:radius + right] 
+    masked_heatmap  = heatmap[y - top:y + bottom, x - left:x + right]
+    masked_gaussian = gaussian[radius - top:radius + bottom, radius - left:radius + right]
     if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0: # TODO debug
         np.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
     return heatmap
@@ -257,14 +255,14 @@ def draw_dense_reg(regmap, heatmap, center, value, radius, is_offset=False):
         delta = np.arange(diameter*2+1) - radius
         reg[0] = reg[0] - delta.reshape(1, -1)
         reg[1] = reg[1] - delta.reshape(-1, 1)
-  
+
     x, y = int(center[0]), int(center[1])
 
-    height, width = heatmap.shape[0:2]
-    
+    height, width = heatmap.shape[:2]
+
     left, right = min(x, radius), min(width - x, radius + 1)
     top, bottom = min(y, radius), min(height - y, radius + 1)
-    
+
     masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
     masked_regmap = regmap[:, y - top:y + bottom, x - left:x + right]
     masked_gaussian = gaussian[radius - top:radius + bottom,

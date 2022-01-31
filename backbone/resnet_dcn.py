@@ -186,10 +186,9 @@ class Creat_ResNet(nn.Module):
                 nn.BatchNorm2d(planes * block.expansion, momentum=BN_MOMENTUM),
             )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers = [block(self.inplanes, planes, stride, downsample)]
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
+        for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes))
 
         return nn.Sequential(*layers)
@@ -269,16 +268,15 @@ class Creat_ResNet(nn.Module):
     
 
     def init_weights(self, num_layers):
-        if 1:
-            url = model_urls['resnet{}'.format(num_layers)]
-            pretrained_state_dict = model_zoo.load_url(url)
-            print('=> loading pretrained model {}'.format(url))
-            self.load_state_dict(pretrained_state_dict, strict=False)
-            print('=> init deconv weights from normal distribution')
-            for name, m in self.deconv_layers.named_modules():
-                if isinstance(m, nn.BatchNorm2d):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 0)
+        url = model_urls['resnet{}'.format(num_layers)]
+        pretrained_state_dict = model_zoo.load_url(url)
+        print('=> loading pretrained model {}'.format(url))
+        self.load_state_dict(pretrained_state_dict, strict=False)
+        print('=> init deconv weights from normal distribution')
+        for name, m in self.deconv_layers.named_modules():
+            if isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
 
 resnet_spec = {18: (BasicBlock, [2, 2, 2, 2]),
@@ -294,6 +292,5 @@ def ResNet(layer_num, heads = {'hm': 1, 'wh': 2, 'ang':1,'reg': 2}, head_conv=25
     assert layer_num in [18,34,50,101,152], \
             'ERROR: layer_num must be in [18,34,50,101,152]'
     block_class, layers = resnet_spec[layer_num]
-    model = Creat_ResNet(block_class, layers, heads, head_conv=head_conv, plot=plot)
-    return model
+    return Creat_ResNet(block_class, layers, heads, head_conv=head_conv, plot=plot)
 

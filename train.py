@@ -4,6 +4,7 @@ Created on Sun Jan  5 13:57:15 2020
 
 @author: Lim
 """
+
 import os
 import sys
 import torch
@@ -18,7 +19,7 @@ sys.path.append(r'./backbone')
 #from dlanet import DlaNet
 from dlanet_dcn import DlaNet
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '0' 
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 use_gpu = torch.cuda.is_available()
 #model = ResNet(34)
 model = DlaNet(34)
@@ -32,14 +33,11 @@ if use_gpu:
     model.cuda()
 model.train()
 
-learning_rate = 1.25e-4
-num_epochs = 150
-
-# different learning rate
-params=[]
 params_dict = dict(model.named_parameters())
-for key,value in params_dict.items():
-    params += [{'params':[value],'lr':learning_rate}]
+learning_rate = 1.25e-4
+params = [
+    {'params': [value], 'lr': learning_rate} for value in params_dict.values()
+]
 
 #optimizer = torch.optim.SGD(params, lr=learning_rate, momentum=0.9, weight_decay=5e-4)
 optimizer = torch.optim.Adam(params, lr=learning_rate, weight_decay=1e-4)
@@ -57,17 +55,18 @@ num_iter = 0
 
 best_test_loss = np.inf 
 
+num_epochs = 150
 for epoch in range(num_epochs):
     model.train()
-    if epoch == 90:
-        learning_rate= learning_rate * 0.1 
     if epoch == 120:
-        learning_rate= learning_rate * (0.1 ** 2)
+        learning_rate *= 0.1 ** 2
+    elif epoch == 90:
+        learning_rate *= 0.1
     for param_group in optimizer.param_groups:
         param_group['lr'] = learning_rate
-     
+
     total_loss = 0.
-    
+
     for i, sample in enumerate(train_loader):
         for k in sample:
             sample[k] = sample[k].to(device=device, non_blocking=True)
@@ -81,22 +80,22 @@ for epoch in range(num_epochs):
             print ('Epoch [%d/%d], Iter [%d/%d] Loss: %.4f, average_loss: %.4f' 
             %(epoch+1, num_epochs, i+1, len(train_loader), loss.data, total_loss / (i+1)))
             num_iter += 1
-            
+
 
     #validation
     validation_loss = 0.0
     model.eval()
-    for i, sample in enumerate(test_loader):
+    for sample in test_loader:
         if use_gpu:
             for k in sample:
                 sample[k] = sample[k].to(device=device, non_blocking=True)
-        
+
         pred = model(sample['input'])
-        loss = criterion(pred, sample)   
+        loss = criterion(pred, sample)
         validation_loss += loss.item()
     validation_loss /= len(test_loader)
-    
-    
+
+
     if best_test_loss > validation_loss:
         best_test_loss = validation_loss
         print('get best test loss %.5f' % best_test_loss)

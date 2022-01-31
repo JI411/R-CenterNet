@@ -267,9 +267,8 @@ class DLA(nn.Module):
                 BatchNorm(planes),
             )
 
-        layers = []
-        layers.append(block(inplanes, planes, stride, downsample=downsample))
-        for i in range(1, blocks):
+        layers = [block(inplanes, planes, stride, downsample=downsample)]
+        for _ in range(1, blocks):
             layers.append(block(inplanes, planes))
 
         return nn.Sequential(*layers)
@@ -294,12 +293,11 @@ class DLA(nn.Module):
             y.append(x)
         if self.return_levels:
             return y
-        else:
-            x = self.avgpool(x)
-            x = self.fc(x)
-            x = x.view(x.size(0), -1)
+        x = self.avgpool(x)
+        x = self.fc(x)
+        x = x.view(x.size(0), -1)
 
-            return x
+        return x
 
     def load_pretrained_model(self,  data='imagenet', name='dla34', hash='ba72cf86'):
         fc = self.fc
@@ -651,12 +649,11 @@ def dla169up(classes, pretrained_base=None, **kwargs):
 
 
 def DlaNet(num_layers=34, heads = {'hm': 1, 'wh': 2, 'ang':1, 'reg': 2}, head_conv=256, plot=False):
-    model = Creat_DlaNet('dla{}'.format(num_layers), heads,
+    return Creat_DlaNet('dla{}'.format(num_layers), heads,
                  pretrained=True,
                  down_ratio=4,
                  head_conv=head_conv,
                  plot = plot)
-    return model
 
 
 

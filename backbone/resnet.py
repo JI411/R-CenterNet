@@ -131,10 +131,9 @@ class Creat_ResNet(nn.Module):
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers = [block(self.inplanes, planes, stride, downsample)]
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
+        for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes))
 
         return nn.Sequential(*layers)
@@ -208,5 +207,4 @@ def ResNet(layer_num, heads = {'hm': 1, 'wh': 2, 'ang':1, 'reg': 2}, head_conv=2
     assert layer_num in [18,34,50,101,152], \
             'ERROR: layer_num must be in [18,34,50,101,152]'
     block_class, layers = resnet_spec[layer_num]
-    model = Creat_ResNet(block_class, layers, heads, head_conv=head_conv, plot=plot)
-    return model
+    return Creat_ResNet(block_class, layers, heads, head_conv=head_conv, plot=plot)
